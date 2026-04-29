@@ -1,0 +1,97 @@
+name: 'Pipery Terraform CD'
+description: 'CD pipeline for Terraform: init → plan → apply → state management and drift detection'
+inputs:
+  project_path:
+    description: 'Path to the Terraform root module.'
+    required: false
+    default: '.'
+  config_file:
+    description: 'Path to the pipery config file.'
+    required: false
+    default: '.github/pipery/config.yaml'
+  terraform_version:
+    description: 'Terraform CLI version to use.'
+    required: false
+    default: 'latest'
+  backend_config:
+    description: 'Comma-separated backend config vars (key=val).'
+    required: false
+    default: ''
+  var_file:
+    description: 'Path to a .tfvars file.'
+    required: false
+    default: ''
+  working_directory:
+    description: 'Working directory for Terraform commands.'
+    required: false
+    default: '.'
+  plan_only:
+    description: 'Only run plan, do not apply.'
+    required: false
+    default: 'false'
+  auto_approve:
+    description: 'Skip interactive approval of plan.'
+    required: false
+    default: 'true'
+  destroy:
+    description: 'Run terraform destroy instead of apply.'
+    required: false
+    default: 'false'
+  check_drift:
+    description: 'Run a post-apply plan to detect drift.'
+    required: false
+    default: 'true'
+  skip_plan:
+    description: 'Skip terraform plan step.'
+    required: false
+    default: 'false'
+  skip_apply:
+    description: 'Skip terraform apply step.'
+    required: false
+    default: 'false'
+  skip_drift_check:
+    description: 'Skip drift detection step.'
+    required: false
+    default: 'false'
+  log_file:
+    description: 'Path to write the JSONL log file.'
+    required: false
+    default: 'pipery.jsonl'
+
+runs:
+  using: 'composite'
+  steps:
+  - name: Set up psh
+    uses: pipery-dev/pipery@v1
+
+  - name: Load config
+    shell: bash
+    run: src/read-config.sh
+    env:
+      INPUT_PROJECT_PATH: ${{ inputs.project_path }}
+      INPUT_CONFIG_FILE: ${{ inputs.config_file }}
+
+  - name: Plan
+    shell: bash
+    run: src/step-plan.sh
+    env:
+      INPUT_PROJECT_PATH: ${ inputs.project_path }
+      INPUT_LOG_FILE: ${ inputs.log_file }
+
+  - name: Apply
+    shell: bash
+    run: src/step-apply.sh
+    env:
+      INPUT_PROJECT_PATH: ${ inputs.project_path }
+      INPUT_LOG_FILE: ${ inputs.log_file }
+
+  - name: Drift
+    shell: bash
+    run: src/step-drift.sh
+    env:
+      INPUT_PROJECT_PATH: ${ inputs.project_path }
+      INPUT_LOG_FILE: ${ inputs.log_file }
+
+branding:
+  icon: database
+  color: purple

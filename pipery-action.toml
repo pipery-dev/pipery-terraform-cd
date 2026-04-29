@@ -1,0 +1,106 @@
+owner = "pipery-dev"
+action_name = "pipery-terraform-cd"
+title = "Pipery Terraform CD"
+description = "CD pipeline for Terraform: init → plan → apply → state management and drift detection"
+marketplace_category = "continuous-integration"
+author = "pipery-dev"
+action_type = "composite"
+default_branch = "main"
+version = "1.0.0"
+repository_visibility = "public"
+icon = "assets/icon.png"
+simple_icon = "terraform"
+test_command = ""
+test_project_path = "test-project"
+test_project_input = "project_path"
+test_log_path = "pipery.jsonl"
+test_log_success_values = ["success", "succeeded", "passed", "ok"]
+cleanup_paths = ["pipery.jsonl"]
+
+[[inputs]]
+name = "project_path"
+description = "Path to the Terraform root module."
+required = false
+default = "."
+
+[[inputs]]
+name = "config_file"
+description = "Path to the pipery config file."
+required = false
+default = ".github/pipery/config.yaml"
+
+[[inputs]]
+name = "terraform_version"
+description = "Terraform CLI version to use."
+required = false
+default = "latest"
+
+[[inputs]]
+name = "backend_config"
+description = "Comma-separated backend config vars (key=val)."
+required = false
+default = ""
+
+[[inputs]]
+name = "var_file"
+description = "Path to a .tfvars file."
+required = false
+default = ""
+
+[[inputs]]
+name = "working_directory"
+description = "Working directory for Terraform commands."
+required = false
+default = "."
+
+[[inputs]]
+name = "plan_only"
+description = "Only run plan, do not apply."
+required = false
+default = "false"
+
+[[inputs]]
+name = "auto_approve"
+description = "Skip interactive approval of plan."
+required = false
+default = "true"
+
+[[inputs]]
+name = "destroy"
+description = "Run terraform destroy instead of apply."
+required = false
+default = "false"
+
+[[inputs]]
+name = "check_drift"
+description = "Run a post-apply plan to detect drift."
+required = false
+default = "true"
+
+[[inputs]]
+name = "skip_plan"
+description = "Skip terraform plan step."
+required = false
+default = "false"
+
+[[inputs]]
+name = "skip_apply"
+description = "Skip terraform apply step."
+required = false
+default = "false"
+
+[[inputs]]
+name = "skip_drift_check"
+description = "Skip drift detection step."
+required = false
+default = "false"
+
+[[inputs]]
+name = "log_file"
+description = "Path to write the JSONL log file."
+required = false
+default = "pipery.jsonl"
+
+[[test_log_required_fields]]
+name = "event"
+value = "deploy"
