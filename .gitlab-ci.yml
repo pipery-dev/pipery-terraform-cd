@@ -1,0 +1,103 @@
+# GitLab CI Pipeline for pipery-terraform-cd
+# Terraform deployment with plan, apply, state management, and drift detection.
+
+variables:
+  PROJECT_PATH: "."
+  CONFIG_FILE: ".pipery/config.yaml"
+  TERRAFORM_VERSION: "latest"
+  BACKEND_CONFIG: ""
+  VAR_FILE: ""
+  WORKING_DIRECTORY: "."
+  PLAN_ONLY: "false"
+  AUTO_APPROVE: "true"
+  DESTROY: "false"
+  CHECK_DRIFT: "true"
+  SKIP_PLAN: "false"
+  SKIP_APPLY: "false"
+  SKIP_DRIFT_CHECK: "false"
+  LOG_FILE: "pipery.jsonl"
+
+stages:
+  - setup
+  - plan
+  - apply
+  - drift
+  - logs
+
+setup:
+  stage: setup
+  image: hashicorp/terraform:latest
+  script:
+    - terraform version
+    - cd "$PROJECT_PATH/$WORKING_DIRECTORY"
+    - terraform init
+  artifacts:
+    paths:
+      - "$PROJECT_PATH/$WORKING_DIRECTORY/.terraform/"
+      - "$PROJECT_PATH/$WORKING_DIRECTORY/.terraform.lock.hcl"
+    expire_in: 1 day
+
+plan:
+  stage: plan
+  image: hashicorp/terraform:latest
+  script:
+    - cd "$PROJECT_PATH/$WORKING_DIRECTORY"
+    - terraform plan ${VAR_FILE:+-var-file="$VAR_FILE"} -out=tfplan
+  rules:
+    - if: '$SKIP_PLAN == "true"'
+      when: never
+    - when: on_success
+  artifacts:
+    paths:
+      - "$PROJECT_PATH/$WORKING_DIRECTORY/tfplan"
+      - "$LOG_FILE"
+    expire_in: 30 days
+
+apply:
+  stage: apply
+  image: hashicorp/terraform:latest
+  script:
+    - cd "$PROJECT_PATH/$WORKING_DIRECTORY"
+    - |
+      if [ "$DESTROY" = "true" ]; then
+        terraform destroy ${AUTO_APPROVE:+-auto-approve} ${VAR_FILE:+-var-file="$VAR_FILE"}
+      elif [ "$PLAN_ONLY" = "true" ]; then
+        echo "PLAN_ONLY=true, skipping apply"
+      else
+        terraform apply ${AUTO_APPROVE:+-auto-approve} tfplan
+      fi
+  rules:
+    - if: '$SKIP_APPLY == "true"'
+      when: never
+    - when: manual
+  artifacts:
+    paths:
+      - "$LOG_FILE"
+    expire_in: 30 days
+
+drift_check:
+  stage: drift
+  image: hashicorp/terraform:latest
+  script:
+    - cd "$PROJECT_PATH/$WORKING_DIRECTORY"
+    - terraform plan ${VAR_FILE:+-var-file="$VAR_FILE"} -detailed-exitcode
+  allow_failure: true
+  rules:
+    - if: '$SKIP_DRIFT_CHECK == "true" || $CHECK_DRIFT != "true"'
+      when: never
+    - when: on_success
+  artifacts:
+    paths:
+      - "$LOG_FILE"
+    expire_in: 30 days
+
+collect_logs:
+  stage: logs
+  image: alpine:latest
+  script:
+    - test -f "$LOG_FILE" || touch "$LOG_FILE"
+  artifacts:
+    paths:
+      - "$LOG_FILE"
+    expire_in: 30 days
+  when: always

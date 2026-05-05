@@ -25,7 +25,7 @@ jobs:
       - uses: pipery-dev/pipery-terraform-cd@v3
         with:
           project_path: .
-          config_file: .github/pipery/config.yaml
+          config_file: .pipery/config.yaml
           terraform_version: latest
           backend_config: 
           var_file: 
