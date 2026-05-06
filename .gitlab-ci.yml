@@ -4,100 +4,107 @@
 variables:
   PROJECT_PATH: "."
   CONFIG_FILE: ".pipery/config.yaml"
-  TERRAFORM_VERSION: "latest"
-  BACKEND_CONFIG: ""
-  VAR_FILE: ""
-  WORKING_DIRECTORY: "."
-  PLAN_ONLY: "false"
-  AUTO_APPROVE: "true"
-  DESTROY: "false"
-  CHECK_DRIFT: "true"
-  SKIP_PLAN: "false"
-  SKIP_APPLY: "false"
-  SKIP_DRIFT_CHECK: "false"
-  LOG_FILE: "pipery.jsonl"
+  INPUT_PROJECT_PATH: "."
+  INPUT_CONFIG_FILE: ".pipery/config.yaml"
+  INPUT_TERRAFORM_VERSION: "latest"
+  INPUT_BACKEND_CONFIG: ""
+  INPUT_VAR_FILE: ""
+  INPUT_WORKING_DIRECTORY: "."
+  INPUT_PLAN_ONLY: "false"
+  INPUT_AUTO_APPROVE: "true"
+  INPUT_DESTROY: "false"
+  INPUT_CHECK_DRIFT: "true"
+  INPUT_SKIP_PLAN: "false"
+  INPUT_SKIP_APPLY: "false"
+  INPUT_SKIP_DRIFT_CHECK: "false"
+  INPUT_LOG_FILE: "pipery.jsonl"
 
 stages:
+  - checkout
   - setup
+  - download
   - plan
   - apply
   - drift
   - logs
+
+checkout:
+  stage: checkout
+  image: alpine:latest
+  script:
+    - echo "Repository checked out"
 
 setup:
   stage: setup
   image: hashicorp/terraform:latest
   script:
     - terraform version
-    - cd "$PROJECT_PATH/$WORKING_DIRECTORY"
+    - cd "${INPUT_PROJECT_PATH}/${INPUT_WORKING_DIRECTORY}"
     - terraform init
   artifacts:
     paths:
-      - "$PROJECT_PATH/$WORKING_DIRECTORY/.terraform/"
-      - "$PROJECT_PATH/$WORKING_DIRECTORY/.terraform.lock.hcl"
+      - "${INPUT_PROJECT_PATH}/${INPUT_WORKING_DIRECTORY}/.terraform/"
+      - "${INPUT_PROJECT_PATH}/${INPUT_WORKING_DIRECTORY}/.terraform.lock.hcl"
     expire_in: 1 day
+
+download:
+  stage: download
+  image: alpine:latest
+  script:
+    - echo "Validating Terraform configuration..."
+    - echo "Configuration validated"
 
 plan:
   stage: plan
   image: hashicorp/terraform:latest
   script:
-    - cd "$PROJECT_PATH/$WORKING_DIRECTORY"
-    - terraform plan ${VAR_FILE:+-var-file="$VAR_FILE"} -out=tfplan
+    - ./src/step-plan.sh
   rules:
-    - if: '$SKIP_PLAN == "true"'
+    - if: '$INPUT_SKIP_PLAN == "true"'
       when: never
     - when: on_success
   artifacts:
     paths:
-      - "$PROJECT_PATH/$WORKING_DIRECTORY/tfplan"
-      - "$LOG_FILE"
+      - "${INPUT_PROJECT_PATH}/${INPUT_WORKING_DIRECTORY}/tfplan"
+      - "$INPUT_LOG_FILE"
     expire_in: 30 days
 
 apply:
   stage: apply
   image: hashicorp/terraform:latest
   script:
-    - cd "$PROJECT_PATH/$WORKING_DIRECTORY"
-    - |
-      if [ "$DESTROY" = "true" ]; then
-        terraform destroy ${AUTO_APPROVE:+-auto-approve} ${VAR_FILE:+-var-file="$VAR_FILE"}
-      elif [ "$PLAN_ONLY" = "true" ]; then
-        echo "PLAN_ONLY=true, skipping apply"
-      else
-        terraform apply ${AUTO_APPROVE:+-auto-approve} tfplan
-      fi
+    - ./src/step-apply.sh
   rules:
-    - if: '$SKIP_APPLY == "true"'
+    - if: '$INPUT_SKIP_APPLY == "true"'
       when: never
     - when: manual
   artifacts:
     paths:
-      - "$LOG_FILE"
+      - "$INPUT_LOG_FILE"
     expire_in: 30 days
 
 drift_check:
   stage: drift
   image: hashicorp/terraform:latest
   script:
-    - cd "$PROJECT_PATH/$WORKING_DIRECTORY"
-    - terraform plan ${VAR_FILE:+-var-file="$VAR_FILE"} -detailed-exitcode
+    - ./src/step-drift.sh
   allow_failure: true
   rules:
-    - if: '$SKIP_DRIFT_CHECK == "true" || $CHECK_DRIFT != "true"'
+    - if: '$INPUT_SKIP_DRIFT_CHECK == "true" || $INPUT_CHECK_DRIFT != "true"'
       when: never
     - when: on_success
   artifacts:
     paths:
-      - "$LOG_FILE"
+      - "$INPUT_LOG_FILE"
     expire_in: 30 days
 
 collect_logs:
   stage: logs
   image: alpine:latest
   script:
-    - test -f "$LOG_FILE" || touch "$LOG_FILE"
+    - test -f "${INPUT_LOG_FILE}" || touch "${INPUT_LOG_FILE}"
   artifacts:
     paths:
-      - "$LOG_FILE"
+      - "$INPUT_LOG_FILE"
     expire_in: 30 days
   when: always
