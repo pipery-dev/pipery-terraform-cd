@@ -215,7 +215,7 @@ pipelines:
       - step: *apply-step
       - step: *drift-step
       - step: *logs-step
-    - step: *dashboard-link
+      - step: *dashboard-link
 
   pull-requests:
     feature/**:
@@ -224,7 +224,7 @@ pipelines:
       - step: *download-step
       - step: *plan-step
       - step: *logs-step
-    - step: *dashboard-link
+      - step: *dashboard-link
 
   custom:
     plan-only:
